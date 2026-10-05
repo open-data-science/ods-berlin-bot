@@ -4,7 +4,7 @@
 
 # ODS Berlin Bot
 
-On Sunday at 18:00 Europe/Berlin, [@ods_berlin_bot](https://t.me/ods_berlin_bot) posts the Wednesday data breakfast into the ODS Berlin Meetings topic. Telegram then keeps that post at the top of the topic.
+On Sunday at 18:00 Europe/Berlin, [@ods_berlin_bot](https://t.me/ods_berlin_bot) posts the Wednesday data breakfast into the ODS Berlin Meetings topic. Telegram then keeps that post at the top of the topic, and the bot unpins its own post from the week before. Pins left by other people are never touched.
 
 We use the Wednesday after that Sunday, and the `Europe/Berlin` clock keeps 18:00 through the CET and CEST switch.
 

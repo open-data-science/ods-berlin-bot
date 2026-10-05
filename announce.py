@@ -69,8 +69,37 @@ def listen(token: str) -> None:
     app.run_polling(allowed_updates=["message"])
 
 
+async def last_bot_pin(bot: Bot, chat_id: str) -> int | None:
+    """Id of the pinned announcement from the previous week, or None if the pin is not ours.
+
+    Telegram reports a single most recent pin per chat, not one per topic, so a message
+    somebody else pinned elsewhere comes back here and is left alone.
+    """
+    chat = await bot.get_chat(chat_id)
+    pinned = chat.pinned_message
+    if pinned is None:
+        return None
+    sender = pinned.sender_bot or pinned.from_user
+    if sender is None or sender.id != bot.id:
+        return None
+    return pinned.message_id
+
+
+async def unpin_previous(bot: Bot, chat_id: str, stale_id: int | None, new_id: int) -> None:
+    """Drop last week's pin, after the new one is up, so the topic is never left without one."""
+    if stale_id is None or stale_id == new_id:
+        return
+    try:
+        await bot.unpin_chat_message(chat_id=chat_id, message_id=stale_id)
+    except TelegramError as exc:
+        print(f"left message {stale_id} pinned: {exc}", flush=True)
+    else:
+        print(f"unpinned previous announcement {stale_id}", flush=True)
+
+
 async def post_announcement(token: str, chat_id: str, thread_id: int, text: str) -> int:
     async with Bot(token) as bot:
+        stale_id = await last_bot_pin(bot, chat_id)
         message = await bot.send_message(
             chat_id=chat_id,
             message_thread_id=thread_id,
@@ -82,6 +111,7 @@ async def post_announcement(token: str, chat_id: str, thread_id: int, text: str)
             message_id=message.message_id,
             disable_notification=True,
         )
+        await unpin_previous(bot, chat_id, stale_id, message.message_id)
     return message.message_id
 
 
