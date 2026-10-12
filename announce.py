@@ -18,15 +18,16 @@ BERLIN = ZoneInfo("Europe/Berlin")
 MAPS_URL = "https://maps.app.goo.gl/fN63iVfjGdfFDZRBA"
 
 
-def meeting_time(now: datetime) -> datetime:
+def meeting_time(now: datetime, dry_run: bool = False) -> datetime:
     """08:30 Berlin on the Wednesday after `now`. Refuse unless today is Sunday."""
     now = now.astimezone(BERLIN)
-    if now.weekday() != 6:
+    if now.weekday() != 6 and not dry_run:
         raise SystemExit(
             f"Refusing to post on {now.strftime('%A %d.%m.%Y')}. "
             "Cron should run this on Sunday evening."
         )
-    meeting_date = now.date() + timedelta(days=3)
+    days_ahead = (2 - now.weekday()) % 7 or 7
+    meeting_date = now.date() + timedelta(days=days_ahead)
     return datetime(
         meeting_date.year,
         meeting_date.month,
@@ -75,11 +76,15 @@ async def last_bot_pin(bot: Bot, chat_id: str) -> int | None:
     Telegram reports a single most recent pin per chat, not one per topic, so a message
     somebody else pinned elsewhere comes back here and is left alone.
     """
-    chat = await bot.get_chat(chat_id)
+    try:
+        chat = await bot.get_chat(chat_id)
+    except TelegramError as exc:
+        print(f"could not inspect pinned message: {exc}", flush=True)
+        return None
     pinned = chat.pinned_message
     if pinned is None:
         return None
-    sender = pinned.sender_bot or pinned.from_user
+    sender = pinned.from_user
     if sender is None or sender.id != bot.id:
         return None
     return pinned.message_id
@@ -124,10 +129,11 @@ def main() -> None:
         listen(token)
         return
 
+    dry_run = "--dry-run" in sys.argv
     try:
-        meeting = meeting_time(datetime.now(BERLIN))
+        meeting = meeting_time(datetime.now(BERLIN), dry_run=dry_run)
         text = announcement_text(meeting)
-        if "--dry-run" in sys.argv:
+        if dry_run:
             print(text)
             return
 
